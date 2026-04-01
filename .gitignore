@@ -1,0 +1,10 @@
+# Environment variables — never commit your API key
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.code-workspace
