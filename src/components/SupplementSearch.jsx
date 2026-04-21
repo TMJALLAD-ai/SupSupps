@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { searchSupplement } from '../utils/api'
+import { canSearch, incrementSearchCount, getRemainingSearches, FREE_LIMIT } from '../utils/usage'
 
 const QUICK_PICKS = [
   'Creatine',
@@ -10,20 +12,6 @@ const QUICK_PICKS = [
   'BCAAs',
   'Turkesterone',
 ]
-
-// Mock data for Phase 1 — replaced with real API in Phase 2
-const MOCK_RESULT = {
-  name: 'Creatine',
-  verdict: 'The most proven performance supplement in existence. Just take it.',
-  evidence: 'Strong',
-  effective_dose: '3–5g daily',
-  timing: 'Any time — consistency matters more than timing',
-  best_for: 'Anyone doing resistance training or high-intensity sport',
-  synergies: 'Beta-Alanine, Carbohydrates post-workout',
-  watch_out: 'Cheap monohydrate works as well as any fancy form. Don\'t overpay.',
-  lifter_take:
-    'This is the one supplement with decades of research behind it. If you\'re not taking creatine, you\'re leaving gains on the table. No loading phase needed — 5g a day, done. Everything else in this list is optional. This is not.',
-}
 
 function evidenceBadgeClass(evidence) {
   switch (evidence?.toLowerCase()) {
@@ -60,16 +48,26 @@ function VerdictCard({ data }) {
           <label>Best for</label>
           <span>{data.best_for}</span>
         </div>
-        <div className="card-field">
-          <label>Pairs well with</label>
-          <span>{data.synergies}</span>
-        </div>
+        {/* Only render Pairs With if the API returned a non-null value */}
+        {data.pairs_with && (
+          <div className="card-field">
+            <label>Pairs well with</label>
+            <span>{data.pairs_with}</span>
+          </div>
+        )}
       </div>
 
       <div className="card-field" style={{ marginBottom: '1.25rem' }}>
         <label>Watch out</label>
         <span>{data.watch_out}</span>
       </div>
+
+      {data.proof && (
+        <div className="proof-block">
+          <div className="proof-label">The Science</div>
+          <p className="proof-text">{data.proof}</p>
+        </div>
+      )}
 
       <hr className="divider" />
 
@@ -81,27 +79,51 @@ function VerdictCard({ data }) {
   )
 }
 
-export default function SupplementSearch({ usageCount, onSearch }) {
+function LimitReached() {
+  return (
+    <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.75rem' }}>
+      <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔒</div>
+      <div className="supplement-name" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>
+        Daily limit reached
+      </div>
+      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+        Free accounts get {FREE_LIMIT} searches per day. Come back tomorrow or upgrade for unlimited access.
+      </p>
+      {/* TODO(phase-payments): wire up Stripe upgrade flow */}
+      <button className="btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+        Upgrade to Premium — Coming Soon
+      </button>
+    </div>
+  )
+}
+
+export default function SupplementSearch() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [remaining, setRemaining] = useState(() => getRemainingSearches())
+  const limited = remaining === 0
 
-  function handleSearch(term) {
+  async function handleSearch(term) {
     const q = term || query
-    if (!q.trim()) return
+    if (!q.trim() || !canSearch()) return
 
     setLoading(true)
     setError(null)
     setResult(null)
     setQuery(q)
 
-    // Phase 1: mock result after a short delay to simulate API
-    setTimeout(() => {
-      setResult({ ...MOCK_RESULT, name: q })
+    try {
+      const data = await searchSupplement(q)
+      incrementSearchCount()
+      setRemaining(getRemainingSearches())
+      setResult(data)
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Try again.')
+    } finally {
       setLoading(false)
-      if (onSearch) onSearch()
-    }, 800)
+    }
   }
 
   function handleKeyDown(e) {
@@ -110,6 +132,12 @@ export default function SupplementSearch({ usageCount, onSearch }) {
 
   return (
     <div>
+      <div className="usage-bar">
+        <span className="usage-text">
+          <span>{remaining}</span> / {FREE_LIMIT} free searches remaining today
+        </span>
+      </div>
+
       <div className="search-wrap">
         <input
           className="search-input"
@@ -117,11 +145,12 @@ export default function SupplementSearch({ usageCount, onSearch }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={limited}
         />
         <button
           className="btn-primary"
           onClick={() => handleSearch()}
-          disabled={loading || !query.trim()}
+          disabled={loading || !query.trim() || limited}
         >
           Search
         </button>
@@ -132,8 +161,9 @@ export default function SupplementSearch({ usageCount, onSearch }) {
         {QUICK_PICKS.map(name => (
           <button
             key={name}
-            className="chip"
-            onClick={() => handleSearch(name)}
+            className={`chip${limited ? ' disabled' : ''}`}
+            onClick={() => !limited && handleSearch(name)}
+            style={limited ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
           >
             {name}
           </button>
@@ -149,9 +179,11 @@ export default function SupplementSearch({ usageCount, onSearch }) {
 
       {error && <div className="error-box">{error}</div>}
 
+      {limited && !result && <LimitReached />}
+
       {result && !loading && <VerdictCard data={result} />}
 
-      {!result && !loading && !error && (
+      {!result && !loading && !error && !limited && (
         <div className="empty-state">
           Search a supplement or pick one above to get the evidence-based verdict.
         </div>

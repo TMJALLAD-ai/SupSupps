@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { auditStack } from '../utils/api'
 
 const GOALS = [
   'Muscle hypertrophy',
@@ -8,28 +9,43 @@ const GOALS = [
   'General health & recovery',
 ]
 
-// Mock audit result for Phase 1 — replaced with real API in Phase 3
-const MOCK_AUDIT = {
-  overall: 'Solid foundation with a clear gap in intra-workout performance support.',
-  strengths: [
-    'Creatine is the right anchor — strong evidence, correctly dosed',
-    'Protein supplementation supports your hypertrophy goal well',
-  ],
-  gaps: [
-    'No pre-workout nitric oxide support (L-Citrulline would help)',
-    'Missing sleep/recovery support — Magnesium Glycinate would be a high-ROI add',
-  ],
-  redundancies: [
-    'BCAAs are redundant if you\'re already hitting protein targets — remove them',
-  ],
-  timing_notes: [
-    'Take creatine at the same time every day — timing is irrelevant, consistency is not',
-    'Protein supplement is best used to hit daily targets, not just post-workout',
-  ],
-  top_add: 'L-Citrulline',
-  top_add_reason:
-    'Strong evidence for blood flow and endurance during training — directly supports hypertrophy goal.',
+const DEFAULT_SECTIONS = [
+  { id: 'morning',    label: 'Morning',     rows: [{ name: '', dose: '' }] },
+  { id: 'preworkout', label: 'Pre-workout', rows: [{ name: '', dose: '' }] },
+  { id: 'evening',    label: 'Evening',     rows: [{ name: '', dose: '' }] },
+  { id: 'misc',       label: 'Misc',        rows: [] },
+]
+
+// Common supplements with their standard effective doses for auto-populate
+const KNOWN_DOSES = {
+  'Creatine': '5g',
+  'Ashwagandha': '300–600mg',
+  'L-Citrulline': '6–8g',
+  'Beta-Alanine': '3.2g',
+  'Magnesium Glycinate': '200–400mg',
+  'Vitamin D3': '2,000–4,000 IU',
+  'BCAAs': '5–10g',
+  'Turkesterone': 'None established',
+  'Caffeine': '3–6mg/kg',
+  'Fish Oil': '1–3g EPA+DHA',
+  'Zinc': '15–30mg',
+  'Vitamin C': '500–1,000mg',
+  'Melatonin': '0.5–3mg',
+  'L-Theanine': '100–200mg',
+  'Collagen': '10–15g',
+  'Rhodiola': '200–600mg',
+  'Alpha-GPC': '300–600mg',
+  'Lion\'s Mane': '500–3,000mg',
+  'Berberine': '500mg',
+  'NMN': 'None established',
+  'Taurine': '1–3g',
+  'Electrolytes': 'Per label',
+  'Protein Powder': 'Per label',
+  'Pre-workout': 'Per label',
+  'Multivitamin': 'Per label',
 }
+
+const SUPPLEMENT_NAMES = Object.keys(KNOWN_DOSES)
 
 function AuditResult({ data }) {
   return (
@@ -81,9 +97,87 @@ function AuditResult({ data }) {
   )
 }
 
+function SupplementRow({ row, onChange, onRemove, showRemove, sectionId, rowIndex }) {
+  const inputId = `supp-${sectionId}-${rowIndex}`
+
+  function handleNameChange(value) {
+    const dose = KNOWN_DOSES[value] ?? row.dose
+    onChange({ name: value, dose })
+  }
+
+  return (
+    <div className="stack-row">
+      <div className="stack-row-name">
+        <input
+          className="search-input"
+          placeholder="Supplement"
+          value={row.name}
+          list={`${inputId}-list`}
+          onChange={e => handleNameChange(e.target.value)}
+        />
+        <datalist id={`${inputId}-list`}>
+          {SUPPLEMENT_NAMES.map(n => <option key={n} value={n} />)}
+        </datalist>
+      </div>
+      <div className="stack-row-dose">
+        <input
+          className="search-input"
+          placeholder="Dose"
+          value={row.dose}
+          onChange={e => onChange({ ...row, dose: e.target.value })}
+        />
+      </div>
+      {showRemove && (
+        <button className="btn-remove" onClick={onRemove} title="Remove">×</button>
+      )}
+    </div>
+  )
+}
+
+function TimingSection({ section, onAddRow, onRemoveRow, onChangeRow, onRemoveSection }) {
+  const hasRows = section.rows.length > 0
+
+  return (
+    <div className="timing-section">
+      <div className="timing-section-header">
+        <span className="timing-section-label">{section.label}</span>
+        <button
+          className="timing-remove-section"
+          onClick={onRemoveSection}
+          title={`Remove ${section.label}`}
+        >
+          ×
+        </button>
+      </div>
+
+      {hasRows && (
+        <div className="stack-rows">
+          {section.rows.map((row, i) => (
+            <SupplementRow
+              key={i}
+              row={row}
+              sectionId={section.id}
+              rowIndex={i}
+              showRemove={section.rows.length > 1 || row.name !== ''}
+              onChange={updated => onChangeRow(i, updated)}
+              onRemove={() => onRemoveRow(i)}
+            />
+          ))}
+        </div>
+      )}
+
+      <button className="btn-add-row" onClick={onAddRow}>
+        + Add supplement
+      </button>
+    </div>
+  )
+}
+
 export default function StackAudit() {
   const [selectedGoals, setSelectedGoals] = useState([])
-  const [supplements, setSupplements] = useState(['', ''])
+  const [sections, setSections] = useState(DEFAULT_SECTIONS)
+  const [newTimingLabel, setNewTimingLabel] = useState('')
+  const [showTimingInput, setShowTimingInput] = useState(false)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -94,34 +188,62 @@ export default function StackAudit() {
     )
   }
 
-  function updateSupplement(index, value) {
-    setSupplements(prev => prev.map((s, i) => (i === index ? value : s)))
+  function addRow(sectionId) {
+    setSections(prev => prev.map(s =>
+      s.id === sectionId ? { ...s, rows: [...s.rows, { name: '', dose: '' }] } : s
+    ))
   }
 
-  function addSupplement() {
-    setSupplements(prev => [...prev, ''])
+  function removeRow(sectionId, rowIndex) {
+    setSections(prev => prev.map(s =>
+      s.id === sectionId ? { ...s, rows: s.rows.filter((_, i) => i !== rowIndex) } : s
+    ))
   }
 
-  function removeSupplement(index) {
-    setSupplements(prev => prev.filter((_, i) => i !== index))
+  function changeRow(sectionId, rowIndex, updated) {
+    setSections(prev => prev.map(s =>
+      s.id === sectionId
+        ? { ...s, rows: s.rows.map((r, i) => i === rowIndex ? updated : r) }
+        : s
+    ))
   }
 
-  function handleAudit() {
-    const filled = supplements.filter(s => s.trim())
-    if (!filled.length || !selectedGoals.length) return
+  function removeSection(sectionId) {
+    setSections(prev => prev.filter(s => s.id !== sectionId))
+  }
+
+  function addTimingSection() {
+    const label = newTimingLabel.trim()
+    if (!label) return
+    setSections(prev => [...prev, {
+      id: `custom-${Date.now()}`,
+      label,
+      rows: [{ name: '', dose: '' }],
+    }])
+    setNewTimingLabel('')
+    setShowTimingInput(false)
+  }
+
+  async function handleAudit() {
+    const filledSections = sections.filter(s => s.rows.some(r => r.name.trim()))
+    if (!filledSections.length || !selectedGoals.length) return
 
     setLoading(true)
     setError(null)
     setResult(null)
 
-    // Phase 1: mock result
-    setTimeout(() => {
-      setResult(MOCK_AUDIT)
+    try {
+      const data = await auditStack(selectedGoals, filledSections)
+      setResult(data)
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Try again.')
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
-  const canAudit = selectedGoals.length > 0 && supplements.some(s => s.trim())
+  const canAudit = selectedGoals.length > 0 &&
+    sections.some(s => s.rows.some(r => r.name.trim()))
 
   return (
     <div>
@@ -139,35 +261,47 @@ export default function StackAudit() {
       </div>
 
       <p className="section-label">Your current stack</p>
-      <div className="supplement-inputs">
-        {supplements.map((s, i) => (
-          <div key={i} className="supplement-input-row">
-            <input
-              className="search-input"
-              placeholder={`Supplement ${i + 1}`}
-              value={s}
-              onChange={e => updateSupplement(i, e.target.value)}
-            />
-            {supplements.length > 1 && (
-              <button
-                className="btn-remove"
-                onClick={() => removeSupplement(i)}
-                title="Remove"
-              >
-                ×
-              </button>
-            )}
-          </div>
+
+      <div className="timing-sections">
+        {sections.map(section => (
+          <TimingSection
+            key={section.id}
+            section={section}
+            onAddRow={() => addRow(section.id)}
+            onRemoveRow={i => removeRow(section.id, i)}
+            onChangeRow={(i, updated) => changeRow(section.id, i, updated)}
+            onRemoveSection={() => removeSection(section.id)}
+          />
         ))}
       </div>
 
-      <button className="btn-add" onClick={addSupplement}>
-        + Add supplement
-      </button>
+      {/* Add custom timing section */}
+      {showTimingInput ? (
+        <div className="timing-add-row">
+          <input
+            className="search-input"
+            placeholder="Timing label (e.g. Intra-workout)"
+            value={newTimingLabel}
+            onChange={e => setNewTimingLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addTimingSection()}
+            autoFocus
+          />
+          <button className="btn-primary" onClick={addTimingSection} disabled={!newTimingLabel.trim()}>
+            Add
+          </button>
+          <button className="btn-ghost" onClick={() => { setShowTimingInput(false); setNewTimingLabel('') }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button className="btn-add" onClick={() => setShowTimingInput(true)}>
+          + Add timing
+        </button>
+      )}
 
       <button
         className="btn-primary"
-        style={{ width: '100%', marginBottom: '2rem' }}
+        style={{ width: '100%', marginBottom: '2rem', marginTop: '1rem' }}
         onClick={handleAudit}
         disabled={loading || !canAudit}
       >
@@ -187,7 +321,7 @@ export default function StackAudit() {
 
       {!result && !loading && !error && (
         <div className="empty-state">
-          Select your goal(s), enter your supplements, and get an honest audit.
+          Select your goal(s), fill in your stack by timing, and get an honest audit.
         </div>
       )}
     </div>

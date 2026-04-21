@@ -334,6 +334,134 @@ h1, h2, h3, .display {
   margin-bottom: 0.75rem;
 }
 
+/* ── Proof block ── */
+.proof-block {
+  background: rgba(200, 240, 77, 0.04);
+  border-left: 3px solid rgba(200, 240, 77, 0.4);
+  border-radius: 0 6px 6px 0;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.proof-label {
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+  opacity: 0.8;
+}
+
+.proof-text {
+  color: var(--muted);
+  font-size: 0.825rem;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* ── Timing sections (Stack Audit) ── */
+.timing-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.timing-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1rem 0.75rem;
+}
+
+.timing-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.timing-section-label {
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.timing-remove-section {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+  transition: color 0.15s;
+}
+
+.timing-remove-section:hover {
+  color: var(--red);
+}
+
+.stack-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.stack-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.stack-row-name {
+  flex: 2;
+  position: relative;
+}
+
+.stack-row-name .search-input {
+  width: 100%;
+}
+
+.stack-row-dose {
+  flex: 1;
+}
+
+.stack-row-dose .search-input {
+  width: 100%;
+}
+
+.btn-add-row {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0;
+  transition: color 0.15s;
+  text-align: left;
+}
+
+.btn-add-row:hover {
+  color: var(--accent);
+}
+
+.timing-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.timing-add-row .search-input {
+  flex: 1;
+}
+
 .supplement-inputs {
   display: flex;
   flex-direction: column;
