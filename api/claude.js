@@ -22,8 +22,15 @@ export default async function handler(req, res) {
     })
 
     const data = await response.json()
+
+    // If Anthropic returns an error, pass it through
+    if (!response.ok) {
+      return res.status(response.status).json(data)
+    }
+
     res.status(response.status).json(data)
   } catch (err) {
-    res.status(500).json({ error: 'Failed to reach Anthropic API' })
+    console.error('API error:', err.message)
+    res.status(500).json({ error: err.message || 'Failed to reach Anthropic API' })
   }
 }
