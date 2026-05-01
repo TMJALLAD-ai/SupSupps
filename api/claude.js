@@ -7,10 +7,12 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
+    console.error('API key not configured in environment')
     return res.status(500).json({ error: 'API key not configured' })
   }
 
   try {
+    console.log('Forwarding request to Anthropic API')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -22,15 +24,16 @@ export default async function handler(req, res) {
     })
 
     const data = await response.json()
+    console.log('Anthropic response status:', response.status)
 
-    // If Anthropic returns an error, pass it through
     if (!response.ok) {
+      console.error('Anthropic API error:', data)
       return res.status(response.status).json(data)
     }
 
     res.status(response.status).json(data)
   } catch (err) {
-    console.error('API error:', err.message)
-    res.status(500).json({ error: err.message || 'Failed to reach Anthropic API' })
+    console.error('Proxy error:', err.message, err.stack)
+    res.status(500).json({ error: `Error: ${err.message}` })
   }
 }
