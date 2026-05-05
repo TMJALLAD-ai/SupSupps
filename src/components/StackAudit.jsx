@@ -47,10 +47,37 @@ const KNOWN_DOSES = {
 
 const SUPPLEMENT_NAMES = Object.keys(KNOWN_DOSES)
 
-function AuditResult({ data }) {
+function AuditResult({ data, sections }) {
+  // Extract timing groups from sections for timeline visualization
+  const timingGroups = sections
+    .filter(s => s.rows.some(r => r.name.trim()))
+    .map(s => ({
+      label: s.label,
+      supplements: s.rows.filter(r => r.name.trim()).map(r => ({ name: r.name, dose: r.dose }))
+    }))
+
   return (
     <div className="card">
       <p className="audit-overall">{data.overall}</p>
+
+      {/* Timeline Visualization */}
+      {timingGroups.length > 0 && (
+        <div className="timing-timeline">
+          <div className="timeline-label">Your supplement timeline:</div>
+          <div className="timeline-flow">
+            {timingGroups.map((group, idx) => (
+              <div key={idx} className="timeline-node">
+                <div className="timeline-marker">{group.label}</div>
+                <div className="timeline-supplements">
+                  {group.supplements.map((supp, suppIdx) => (
+                    <div key={suppIdx} className="timeline-pill">{supp.name}</div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data.strengths?.length > 0 && (
         <div className="audit-section green">
@@ -167,7 +194,7 @@ function TimingSection({ section, onAddRow, onRemoveRow, onChangeRow, onRemoveSe
       )}
 
       <button className="btn-add-row" onClick={onAddRow}>
-        + Add supplement
+        + Add
       </button>
     </div>
   )
@@ -226,7 +253,7 @@ export default function StackAudit() {
 
   async function handleAudit() {
     const filledSections = sections.filter(s => s.rows.some(r => r.name.trim()))
-    if (!filledSections.length || !selectedGoals.length) return
+    if (!filledSections.length) return
 
     setLoading(true)
     setError(null)
@@ -242,12 +269,11 @@ export default function StackAudit() {
     }
   }
 
-  const canAudit = selectedGoals.length > 0 &&
-    sections.some(s => s.rows.some(r => r.name.trim()))
+  const canAudit = sections.some(s => s.rows.some(r => r.name.trim()))
 
   return (
     <div>
-      <p className="section-label">Your goal(s)</p>
+      <p className="section-label">Training for what?</p>
       <div className="chips" style={{ marginBottom: '1.75rem' }}>
         {GOALS.map(goal => (
           <button
@@ -260,7 +286,7 @@ export default function StackAudit() {
         ))}
       </div>
 
-      <p className="section-label">Your current stack</p>
+      <p className="section-label">What are you taking?</p>
 
       <div className="timing-sections">
         {sections.map(section => (
@@ -280,7 +306,7 @@ export default function StackAudit() {
         <div className="timing-add-row">
           <input
             className="search-input"
-            placeholder="Timing label (e.g. Intra-workout)"
+            placeholder="E.g. intra-workout, with lunch"
             value={newTimingLabel}
             onChange={e => setNewTimingLabel(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addTimingSection()}
@@ -305,23 +331,23 @@ export default function StackAudit() {
         onClick={handleAudit}
         disabled={loading || !canAudit}
       >
-        {loading ? 'Auditing…' : 'Audit my stack'}
+        {loading ? 'Auditing...' : 'Audit'}
       </button>
 
       {loading && (
         <div className="loading">
           <div className="spinner" />
-          Auditing your stack…
+          Checking your stack...
         </div>
       )}
 
       {error && <div className="error-box">{error}</div>}
 
-      {result && !loading && <AuditResult data={result} />}
+      {result && !loading && <AuditResult data={result} sections={sections} />}
 
       {!result && !loading && !error && (
         <div className="empty-state">
-          Select your goal(s), fill in your stack by timing, and get an honest audit.
+          What's your goal? What are you taking? We'll audit it.
         </div>
       )}
     </div>

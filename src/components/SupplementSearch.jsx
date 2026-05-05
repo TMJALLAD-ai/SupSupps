@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { searchSupplement } from '../utils/api'
-import { canSearch, incrementSearchCount, getRemainingSearches, FREE_LIMIT } from '../utils/usage'
 
 const QUICK_PICKS = [
   'Creatine',
@@ -9,8 +8,8 @@ const QUICK_PICKS = [
   'Beta-Alanine',
   'Magnesium Glycinate',
   'Vitamin D3',
-  'BCAAs',
-  'Turkesterone',
+  'Caffeine',
+  'Melatonin',
 ]
 
 function evidenceBadgeClass(evidence) {
@@ -33,6 +32,13 @@ function VerdictCard({ data }) {
         </span>
       </div>
 
+      <div className={`evidence-bar ${data.evidence?.toLowerCase()}`}>
+        <div className="evidence-bar-segment"></div>
+        <div className="evidence-bar-segment"></div>
+        <div className="evidence-bar-segment"></div>
+        <div className="evidence-bar-segment"></div>
+      </div>
+
       <p className="verdict-text">{data.verdict}</p>
 
       <div className="card-grid">
@@ -48,11 +54,26 @@ function VerdictCard({ data }) {
           <label>Best for</label>
           <span>{data.best_for}</span>
         </div>
-        {/* Only render Pairs With if the API returned a non-null value */}
-        {data.pairs_with && (
+        {/* Render training goals badges if present */}
+        {data.best_goals && data.best_goals.length > 0 && (
           <div className="card-field">
+            <label>For your goals</label>
+            <div className="benefit-badges">
+              {data.best_goals.map(goal => (
+                <span key={goal} className="benefit-badge">{goal}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Render Pairs With with visual arrow if present */}
+        {data.pairs_with && (
+          <div className="card-field pairs-with-field">
             <label>Pairs well with</label>
-            <span>{data.pairs_with}</span>
+            <div className="pairs-with-visual">
+              <span>{data.name}</span>
+              <span className="pairs-arrow">→</span>
+              <span>{data.pairs_with}</span>
+            </div>
           </div>
         )}
       </div>
@@ -79,35 +100,15 @@ function VerdictCard({ data }) {
   )
 }
 
-function LimitReached() {
-  return (
-    <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.75rem' }}>
-      <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔒</div>
-      <div className="supplement-name" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>
-        Daily limit reached
-      </div>
-      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-        Free accounts get {FREE_LIMIT} searches per day. Come back tomorrow or upgrade for unlimited access.
-      </p>
-      {/* TODO(phase-payments): wire up Stripe upgrade flow */}
-      <button className="btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-        Upgrade to Premium — Coming Soon
-      </button>
-    </div>
-  )
-}
-
 export default function SupplementSearch() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [remaining, setRemaining] = useState(() => getRemainingSearches())
-  const limited = remaining === 0
 
   async function handleSearch(term) {
     const q = term || query
-    if (!q.trim() || !canSearch()) return
+    if (!q.trim()) return
 
     setLoading(true)
     setError(null)
@@ -116,8 +117,6 @@ export default function SupplementSearch() {
 
     try {
       const data = await searchSupplement(q)
-      incrementSearchCount()
-      setRemaining(getRemainingSearches())
       setResult(data)
     } catch (err) {
       setError(err.message || 'Something went wrong. Try again.')
@@ -132,27 +131,20 @@ export default function SupplementSearch() {
 
   return (
     <div>
-      <div className="usage-bar">
-        <span className="usage-text">
-          <span>{remaining}</span> / {FREE_LIMIT} free searches remaining today
-        </span>
-      </div>
-
       <div className="search-wrap">
         <input
           className="search-input"
-          placeholder="Search any supplement…"
+          placeholder="Look it up"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={limited}
         />
         <button
           className="btn-primary"
           onClick={() => handleSearch()}
-          disabled={loading || !query.trim() || limited}
+          disabled={loading || !query.trim()}
         >
-          Search
+          Go
         </button>
       </div>
 
@@ -161,9 +153,8 @@ export default function SupplementSearch() {
         {QUICK_PICKS.map(name => (
           <button
             key={name}
-            className={`chip${limited ? ' disabled' : ''}`}
-            onClick={() => !limited && handleSearch(name)}
-            style={limited ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            className="chip"
+            onClick={() => handleSearch(name)}
           >
             {name}
           </button>
@@ -173,19 +164,17 @@ export default function SupplementSearch() {
       {loading && (
         <div className="loading">
           <div className="spinner" />
-          Analyzing {query}…
+          Checking the science...
         </div>
       )}
 
       {error && <div className="error-box">{error}</div>}
 
-      {limited && !result && <LimitReached />}
-
       {result && !loading && <VerdictCard data={result} />}
 
-      {!result && !loading && !error && !limited && (
+      {!result && !loading && !error && (
         <div className="empty-state">
-          Search a supplement or pick one above to get the evidence-based verdict.
+          Pick one or search. We'll tell you what the science says.
         </div>
       )}
     </div>

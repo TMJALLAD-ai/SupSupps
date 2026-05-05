@@ -30,10 +30,18 @@ export function getSearchCount() {
 }
 
 export function getRemainingSearches() {
+  // Dev mode bypass: set localStorage.devMode = true to test without limit
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('devMode') === 'true') {
+    return FREE_LIMIT
+  }
   return Math.max(0, FREE_LIMIT - getUsageData().count)
 }
 
 export function canSearch() {
+  // Dev mode bypass: set localStorage.devMode = true to test without limit
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('devMode') === 'true') {
+    return true
+  }
   return getUsageData().count < FREE_LIMIT
 }
 
