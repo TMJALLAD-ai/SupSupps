@@ -1,3 +1,4 @@
-module.exports = async function handler(req, res) {
-  res.status(200).send(JSON.stringify({ test: 'works' }))
+module.exports = (req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({ working: true }))
 }
