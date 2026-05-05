@@ -10,3 +10,6 @@ Thumbs.db
 *.code-workspace
 
 .vercel
+.netlify
+node_modules
+dist
